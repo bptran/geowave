@@ -6,16 +6,22 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.UUID;
 
+import mil.nga.giat.geowave.accumulo.BasicAccumuloOperations;
+import mil.nga.giat.geowave.accumulo.metadata.AccumuloDataStatisticsStore;
 import mil.nga.giat.geowave.accumulo.util.AccumuloUtils;
+import mil.nga.giat.geowave.index.ByteArrayId;
 import mil.nga.giat.geowave.index.ByteArrayRange;
 import mil.nga.giat.geowave.store.CloseableIterator;
 import mil.nga.giat.geowave.store.DataStore;
 import mil.nga.giat.geowave.store.adapter.DataAdapter;
+import mil.nga.giat.geowave.store.adapter.statistics.CountDataStatistics;
+import mil.nga.giat.geowave.store.adapter.statistics.DataStatistics;
 import mil.nga.giat.geowave.store.index.Index;
 import mil.nga.giat.geowave.store.index.IndexType;
 import mil.nga.giat.geowave.store.query.SpatialQuery;
 import mil.nga.giat.geowave.vector.adapter.FeatureDataAdapter;
 
+import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.IteratorSetting;
 import org.apache.accumulo.core.data.Key;
 import org.apache.accumulo.core.data.Value;
@@ -27,14 +33,10 @@ import org.geotools.referencing.crs.DefaultGeographicCRS;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.feature.simple.SimpleFeatureType;
 
-import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
-import com.vividsolutions.jts.geom.GeometryFactory;
-import com.vividsolutions.jts.geom.LinearRing;
 import com.vividsolutions.jts.geom.MultiPolygon;
 import com.vividsolutions.jts.geom.Point;
 import com.vividsolutions.jts.geom.Polygon;
-import com.vividsolutions.jts.geom.impl.CoordinateArraySequence;
 
 public class ClusteringUtils
 {
@@ -68,35 +70,35 @@ public class ClusteringUtils
 	 * generate a polygon with 4 points defining a boundary of lon: -180 to 180
 	 * and lat: -90 to 90 in a counter-clockwise path
 	 */
-	public static Polygon generateWorldPolygon() {
-		final Coordinate[] coordinateArray = new Coordinate[5];
-		coordinateArray[0] = new Coordinate(
-				-180.0,
-				-90.0);
-		coordinateArray[1] = new Coordinate(
-				-180.0,
-				90.0);
-		coordinateArray[2] = new Coordinate(
-				180.0,
-				90.0);
-		coordinateArray[3] = new Coordinate(
-				180.0,
-				-90.0);
-		coordinateArray[4] = new Coordinate(
-				-180.0,
-				-90.0);
-		final CoordinateArraySequence cas = new CoordinateArraySequence(
-				coordinateArray);
-		final LinearRing linearRing = new LinearRing(
-				cas,
-				new GeometryFactory());
-		return new Polygon(
-				linearRing,
-				null,
-				new GeometryFactory());
-	}
+	// public static Polygon generateWorldPolygon() {
+	// final Coordinate[] coordinateArray = new Coordinate[5];
+	// coordinateArray[0] = new Coordinate(
+	// -180.0,
+	// -90.0);
+	// coordinateArray[1] = new Coordinate(
+	// -180.0,
+	// 90.0);
+	// coordinateArray[2] = new Coordinate(
+	// 180.0,
+	// 90.0);
+	// coordinateArray[3] = new Coordinate(
+	// 180.0,
+	// -90.0);
+	// coordinateArray[4] = new Coordinate(
+	// -180.0,
+	// -90.0);
+	// final CoordinateArraySequence cas = new CoordinateArraySequence(
+	// coordinateArray);
+	// final LinearRing linearRing = new LinearRing(
+	// cas,
+	// new GeometryFactory());
+	// return new Polygon(
+	// linearRing,
+	// null,
+	// new GeometryFactory());
+	// }
 
-	public static SimpleFeatureType createMultiPolygonSimpleFeatureaType(
+	public static SimpleFeatureType createMultiPolygonSimpleFeatureType(
 			final String dataTypeId ) {
 		// build a multipolygon feature type
 		final SimpleFeatureTypeBuilder builder = new SimpleFeatureTypeBuilder();
@@ -131,27 +133,24 @@ public class ClusteringUtils
 
 		return null;
 	}
-
-	/*
-	 * Retrieve point count for the polygon space from the specified data store
-	 */
-	public static Integer getPointCount(
-			final DataStore dataStore,
-			final DataAdapter<SimpleFeature> adapter,
-			final Index index,
-			final Polygon polygon ) {
-		int count = 0;
-		try {
-			// extract points from GeoWave
-			final CloseableIterator<?> actualResults = dataStore.query(
-					adapter,
-					index,
-					new SpatialQuery(
-							polygon));
+	
+	public static Integer getPointCount(Connector connector, String tableNamespace, String adapterId)
+	{
+		Integer count = null;
+		
+		AccumuloDataStatisticsStore statStore = new
+				AccumuloDataStatisticsStore(new BasicAccumuloOperations(
+						connector,
+						tableNamespace));
+		try {			
+			final CloseableIterator<DataStatistics<?>> actualResults =
+					statStore.getDataStatistics(new ByteArrayId(adapterId));
 			while (actualResults.hasNext()) {
 				final Object obj = actualResults.next();
-				if (obj instanceof SimpleFeature) {
-					count++;
+				if(obj instanceof CountDataStatistics)
+				{
+					CountDataStatistics<?> stats = (CountDataStatistics<?>) obj;
+					count = (int) stats.getCount();
 				}
 			}
 			actualResults.close();
@@ -162,6 +161,8 @@ public class ClusteringUtils
 
 		return count;
 	}
+	
+	
 
 	/*
 	 * Retrieve data from GeoWave
@@ -260,7 +261,6 @@ public class ClusteringUtils
 			final DataStore dataStore,
 			final DataAdapter<SimpleFeature> adapter,
 			final Index index,
-			final Polygon polygon,
 			final List<Integer> indices ) {
 		final List<DataPoint> points = new ArrayList<DataPoint>();
 		try {
@@ -269,9 +269,7 @@ public class ClusteringUtils
 			// extract points from GeoWave
 			final CloseableIterator<?> actualResults = dataStore.query(
 					adapter,
-					index,
-					new SpatialQuery(
-							polygon));
+					null);
 			while (actualResults.hasNext()) {
 				if (indices.contains(entryCounter)) {
 					final Object obj = actualResults.next();

@@ -1,24 +1,12 @@
 package mil.nga.giat.geowave.analytics.mapreduce.clustering;
 
-import mil.nga.giat.geowave.accumulo.AccumuloDataStore;
-import mil.nga.giat.geowave.accumulo.BasicAccumuloOperations;
-import mil.nga.giat.geowave.store.DataStore;
-import mil.nga.giat.geowave.store.adapter.WritableDataAdapter;
-import mil.nga.giat.geowave.store.index.Index;
-import mil.nga.giat.geowave.store.index.IndexType;
-import mil.nga.giat.geowave.vector.adapter.FeatureDataAdapter;
-
 import org.apache.accumulo.core.client.AccumuloException;
 import org.apache.accumulo.core.client.AccumuloSecurityException;
 import org.apache.accumulo.core.client.Connector;
 import org.apache.accumulo.core.client.Instance;
 import org.apache.accumulo.core.client.ZooKeeperInstance;
-import org.opengis.feature.simple.SimpleFeature;
-import org.opengis.feature.simple.SimpleFeatureType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.vividsolutions.jts.geom.Polygon;
 
 public class ClusteringDriver
 {
@@ -31,6 +19,8 @@ public class ClusteringDriver
 	private Connector accumuloConnector;
 	private final String dataTableNamespace;
 	private final String tempKMeansTableNamespace;
+
+	final String dataTypeId = "Location";
 
 	final Logger log = LoggerFactory.getLogger(ClusteringDriver.class);
 
@@ -84,25 +74,8 @@ public class ClusteringDriver
 
 	public void generatePolygonsForPoints() {
 		log.info("Initiating clustering and polygon generation...");
-
-		final String dataTypeId = "Location";
-		final Polygon polygon = ClusteringUtils.generateWorldPolygon();
-
-		// spatial index definition and query stuff
-		final Index index = IndexType.SPATIAL_VECTOR.createDefaultIndex();
-		final SimpleFeatureType type = ClusteringUtils.createPointSimpleFeatureType(dataTypeId);
-		final WritableDataAdapter<SimpleFeature> adapter = new FeatureDataAdapter(
-				type);
-		final DataStore inputDataStore = new AccumuloDataStore(
-				new BasicAccumuloOperations(
-						accumuloConnector,
-						dataTableNamespace));
-
-		final int numPts = ClusteringUtils.getPointCount(
-				inputDataStore,
-				adapter,
-				index,
-				polygon);
+		
+		final int numPts = ClusteringUtils.getPointCount(accumuloConnector, dataTableNamespace, dataTypeId);
 		log.info("Input point count: " + numPts);
 
 		// no point (pun intended) to process < 3 pts since there wont be a
@@ -146,7 +119,7 @@ public class ClusteringDriver
 			log.info("Output data type id: [MultiPolygon] in input table namespace: " + dataTableNamespace);
 		}
 		else {
-			log.error("Not enough data for polygon genration");
+			log.error("Not enough data for polygon generation");
 		}
 	}
 
@@ -155,12 +128,13 @@ public class ClusteringDriver
 	 * point cloud data)
 	 * 
 	 * @param args
-	 *            Array of input parameters: args[0] == GeoWave instance name
-	 *            args[1] == CSV list of Zookeeper nodes args[2] == user name
-	 *            for GeoWave instance args[3] == password for user args[4] ==
-	 *            input table namespace in GeoWave, created to only store input
-	 *            point data for this process args[5] == namespace in GeoWave to
-	 *            store temporary data
+	 *            Array of input parameters: 
+	 *            args[0] == GeoWave instance name
+	 *            args[1] == CSV list of Zookeeper nodes 
+	 *            args[2] == user name for GeoWave instance 
+	 *            args[3] == password for user 
+	 *            args[4] == input table namespace in GeoWave, created to only store input point data for this process 
+	 *            args[5] == namespace in GeoWave to store temporary data
 	 */
 	public static void main(
 			final String[] args ) {

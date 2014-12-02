@@ -12,7 +12,6 @@ import mil.nga.giat.geowave.accumulo.mapreduce.input.GeoWaveInputFormat;
 import mil.nga.giat.geowave.store.adapter.WritableDataAdapter;
 import mil.nga.giat.geowave.store.index.Index;
 import mil.nga.giat.geowave.store.index.IndexType;
-import mil.nga.giat.geowave.store.query.SpatialQuery;
 import mil.nga.giat.geowave.vector.adapter.FeatureDataAdapter;
 
 import org.apache.accumulo.core.client.AccumuloException;
@@ -224,22 +223,20 @@ public class JumpDriver
 		GeoWaveInputFormat.setMaximumSplitCount(
 				job,
 				20);
-		GeoWaveInputFormat.setQuery(
-				job,
-				new SpatialQuery(
-						ClusteringUtils.generateWorldPolygon()));
+		// GeoWaveInputFormat.setQuery(
+		// job,
+		// new SpatialQuery(
+		// ClusteringUtils.generateWorldPolygon()));
 
 		// set up AccumuloOutputFormat
 		AccumuloOutputFormat.setConnectorInfo(
 				job,
 				user,
 				authToken);
-		AccumuloOutputFormat// .setZooKeeperInstance(job, new
-							// ClientConfiguration().withInstance(instanceName).withZkHosts(zooservers));
-				.setZooKeeperInstance(
-						job,
-						instanceName,
-						zooservers);
+		AccumuloOutputFormat.setZooKeeperInstance(
+				job,
+				instanceName,
+				zooservers);
 		AccumuloOutputFormat.setDefaultTableName(
 				job,
 				tempKMeansTableName);
@@ -368,21 +365,19 @@ public class JumpDriver
 		GeoWaveInputFormat.setMaximumSplitCount(
 				job,
 				20);
-		GeoWaveInputFormat.setQuery(
-				job,
-				new SpatialQuery(
-						ClusteringUtils.generateWorldPolygon()));
+		// GeoWaveInputFormat.setQuery(
+		// job,
+		// new SpatialQuery(
+		// ClusteringUtils.generateWorldPolygon()));
 
 		AccumuloOutputFormat.setConnectorInfo(
 				job,
 				user,
 				authToken);
-		AccumuloOutputFormat// .setZooKeeperInstance(job, new
-							// ClientConfiguration().withInstance(instanceName).withZkHosts(zooservers));
-				.setZooKeeperInstance(
-						job,
-						instanceName,
-						zooservers);
+		AccumuloOutputFormat.setZooKeeperInstance(
+				job,
+				instanceName,
+				zooservers);
 		AccumuloOutputFormat.setDefaultTableName(
 				job,
 				tempKMeansTableName);
